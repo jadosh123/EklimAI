@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "weather_engine"
-version = "0.1.0"
+version = "1.0.0"
 description = "Physics-Informed Precipitation Forecasting System"
 requires-python = ">=3.11"
 authors = [{ name = "Jad", email = "jadosh2000@gmail.com" }]
@@ -39,8 +39,12 @@ dev = [
     "ipykernel==7.1.0",
     "matplotlib",
     "seaborn",
-    "pytest==9.0.2",
     "scikit-learn==1.8.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.2",
 ]
 
 # -----------------------------------------------------------
