@@ -1,9 +1,10 @@
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text
 
 from weather_engine.cache import get_demo_rows, get_forecast_rows, get_forecast_timestamp, get_now_rows, get_now_timestamp, get_timestamps
 from weather_engine.map_builder import (
@@ -11,6 +12,7 @@ from weather_engine.map_builder import (
     LIVE_MAPS_DIR,
     render_map_section,
 )
+from weather_engine.database import SessionLocal
 from weather_engine.folium_map import build_forecast_map
 from weather_engine.utils import get_project_root
 
@@ -19,6 +21,17 @@ ROOT = get_project_root()
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=ROOT / "static"))
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
+
+@app.get("/health")
+def health():
+    """Liveness/readiness probe for external uptime monitors."""
+    try:
+        with SessionLocal() as db:
+            db.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse({"status": "error", "database": "unreachable"}, status_code=503)
+    return {"status": "ok", "database": "ok"}
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -165,6 +165,6 @@ def send_discord_alert(message: str) -> None:
     if DISCORD_WEBHOOK:
         data = {'content': message}
         try:
-            requests.post(DISCORD_WEBHOOK, json=data)
+            requests.post(DISCORD_WEBHOOK, json=data, timeout=10)
         except Exception as e:
             print(f"Failed to send discord notification: {e}")
