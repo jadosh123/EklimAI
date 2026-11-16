@@ -49,6 +49,25 @@ def test_static_ims_logo():
     assert r.status_code == 200
 
 
+def test_health_endpoint():
+    """External uptime monitors poll /health; it must return 200 when the DB is reachable."""
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok", "database": "ok"}
+
+
+def test_health_endpoint_db_down(monkeypatch):
+    """If the DB is unreachable, /health must return 503 so monitors alert."""
+    def broken_session():
+        raise RuntimeError("db unreachable")
+
+    monkeypatch.setattr("weather_engine.api.SessionLocal", broken_session)
+
+    r = client.get("/health")
+    assert r.status_code == 503
+    assert r.json()["status"] == "error"
+
+
 def test_inference_pipeline_imports():
     """All inference dependencies must be importable — catches missing packages on deploy."""
     import weather_engine.inference_pipeline  # noqa: F401

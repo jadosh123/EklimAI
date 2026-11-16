@@ -297,6 +297,8 @@ def forecast_and_store(cell_neighbors: pd.DataFrame, station_frames: dict, model
     }
 
     if any(v is None for v in upstream_dfs.values()):
+        missing = [name for name, v in upstream_dfs.items() if v is None]
+        send_discord_alert(f"[inference_pipeline] Forecasting skipped: no data for upstream station(s): {', '.join(missing)}")
         print('Skipping forecasting due to haifa and telaviv dataframes being non-existent...')
         return
 
@@ -327,6 +329,7 @@ def forecast_and_store(cell_neighbors: pd.DataFrame, station_frames: dict, model
         records.append(pd.DataFrame(record))
 
     if not records:
+        send_discord_alert(f"[inference_pipeline] No forecasts produced: 0/{len(cell_neighbors)} cells had enough data. Forecasts are stale.")
         print("No forecast records produced.")
         return
 
@@ -350,7 +353,6 @@ def forecast_and_store(cell_neighbors: pd.DataFrame, station_frames: dict, model
 def main() -> None:
     msg = f"[{datetime.now(timezone.utc).replace(tzinfo=None).isoformat()}] inference_pipeline starting..."
     print(msg)
-    send_discord_alert(msg)
 
     bootstrap_static_tables()
 
@@ -359,12 +361,10 @@ def main() -> None:
     # Fetching and Cleaning
     df_raw = fetch_and_store_raw(station_ids)
     if df_raw is None:
-        send_discord_alert("No new data was fetched.\nExiting inference pipeline...")
+        send_discord_alert("[inference_pipeline] No station data fetched: every station failed or returned nothing. Run aborted, forecasts not updated.")
         return
 
-    send_discord_alert(f"Fetched data from {len(station_ids)} stations.")
     clean_and_store(df_raw)
-    send_discord_alert("Cleaned and aggregated data")
 
     # Load station frames from clean_station_data for interpolation + upstream
     all_clean = pd.read_sql("SELECT * FROM clean_station_data", engine)  # NEeds to get changed to use existing df in memory
@@ -377,19 +377,19 @@ def main() -> None:
     interp_models = load_interpolation_models()
     forecast_models = load_forecast_models()
     
-    send_discord_alert("Interpolating cells...")
     interpolate_and_store(cell_neighbors, station_frames, interp_models)
-    send_discord_alert("Forecasting cells...")
     forecast_and_store(cell_neighbors, station_frames, forecast_models)
-    send_discord_alert("Finished!")
-    
+
     print("Building live map cache...")
     build_and_cache_live_maps()
 
     msg = f"[{datetime.now(timezone.utc).replace(tzinfo=None).isoformat()}] Pipeline complete."
     print(msg)
-    send_discord_alert(msg)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        send_discord_alert(f"[inference_pipeline] CRASHED: {type(e).__name__}: {e}")
+        raise
