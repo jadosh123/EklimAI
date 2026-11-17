@@ -73,7 +73,7 @@ def fetch_station_range(station_id: int, lat: float, lon: float) -> list[dict]:
     to_date = (ist_now + timedelta(days=1)).strftime("%Y/%m/%d")  # exclusive upper bound
 
     url = f"{BASE_URL}/{station_id}/data?from={from_date}&to={to_date}"
-    for attempt in range(5):
+    for attempt in range(3):
         try:
             resp = requests.get(url, headers=headers, timeout=60)
             if resp.status_code == 200:
@@ -83,12 +83,12 @@ def fetch_station_range(station_id: int, lat: float, lon: float) -> list[dict]:
             elif resp.status_code == 204:
                 return []
             elif resp.status_code in [429, 500, 502, 503, 504]:
-                wait = 30 + attempt * 30
+                wait = (attempt + 1) * 10
                 print(f"  Station {station_id}: status {resp.status_code}, retrying in {wait}s (attempt {attempt+1}/5)")
                 time.sleep(wait)
         except requests.exceptions.RequestException as e:
-            wait = 30 + attempt * 30
-            print(f"  Station {station_id}: network error {e}, retrying in {wait}s (attempt {attempt+1}/5)")
+            wait = (attempt + 1) * 10
+            print(f"  Station {station_id}: {type(e).__name__}: {e}, retrying in {wait}s (attempt {attempt+1}/5)")
             time.sleep(wait)
 
     send_discord_alert(f"[inference_pipeline] Failed to fetch station {station_id} after 5 attempts.")
